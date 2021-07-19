@@ -1,31 +1,33 @@
+######### Written by Or Zidkani ################
 # Set the Execution policy for "RemoteSigned" in order to launch the script
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Force
 # Install Azure resource manager cmdlet
-Install-Module -Name AzureRM -AllowClobber
+Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
+Install-Module -Name az -AllowClobber
 
 try {
-    Get-AzureRmSubscription | Out-Null
+    Get-AzSubscription | Out-Null
     Write-Host "Already logged in"
     }
     catch {
       Write-Host "Not logged in, transfering to login page"
-      Login-AzureRmAccount
+      Connect-AzAccount
     }
 
 
 
 
-$SubIdCount =  Get-AzureRmSubscription | Measure-Object -Line
-$Subid = Get-AzureRmSubscription
+$SubIdCount =  Get-AzSubscription| Measure-Object -Line
+$Subid = Get-AzSubscription
  If ($SubIdCount.lines  -eq '1')  {
 
-  $Subid = Get-AzureRmSubscription
+  $Subid = Get-AzSubscription
 
   } Else {
 
     $linenumber = 1
 $Subid |
-   ForEach-Object {New-Object psObject -Property @{'Number'=$linenumber;'Subscription Name'= $_.name;};$linenumber ++ } -outvariable choosemenu | out-null
+   ForEach-Object {New-Object psObject -Property @{'Subscription ID'= $_.id;};$linenumber ++ } -outvariable choosemenu | out-null
     
 function Show-Menu
 {
@@ -37,7 +39,7 @@ function Show-Menu
 
     $Menu = @{}
 
-    $choosemenu -replace '@.*Name=' -replace '}' | ForEach-Object -Begin {$i = 1} { 
+    $choosemenu -replace '@.*ID=' -replace '}' | ForEach-Object -Begin {$i = 1} { 
         Write-Host " $i. $_`  " 
         $Menu.add("$i",$_)
         $i++
@@ -59,24 +61,22 @@ Write-Host "Choosen subscription: $UserSelection
 
 
 
-$SubscriptionName = $UserSelection
-$DisplayName = Read-Host "Please specify DisplayName (For example: "AlteonHA")"
-$HomePage =  Read-Host "Please specify HomePage (For example: "https://ha.radware.com/alteon")"
-$IdentifierUris = Read-Host "Please specify Identifier URL (For example: "https://ha.radware.com/alteon")"
+$SubscriptionId = $UserSelection
+$DisplayName = Read-Host "Please specify DisplayName (For example: "radware-cluster" )"
+$HomePage =  Read-Host "Please specify HomePage (For example: "https:/localhost/radware-cluster" )"
+$IdentifierUris = Read-Host "Please specify Identifier URL (For example: "https:/localhost/radware-cluster" )"
 $ClientSecret = Read-Host 'Please specify Client Password (It will be necesary later)' -AsSecureString
 
 
-$AzureSubscriptionName = Get-AzureRmSubscription -SubscriptionName $SubscriptionName 
-$AzureSubscriptionName| Select-AzureRmSubscription | out-null
-$AppReg = New-AzureRmADApplication -DisplayName $DisplayName -HomePage $HomePage -IdentifierUris  $IdentifierUris -Password $ClientSecret
+$AzureSubscriptionId = Get-AzSubscription -SubscriptionId $SubscriptionId
+$AppReg = New-AzADApplication -DisplayName $DisplayName -HomePage $HomePage -IdentifierUris  $IdentifierUris -Password $ClientSecret
 $ClientID = $AppReg.ApplicationId.Guid
-New-AzureRmADServicePrincipal -ApplicationId $ClientID 
+New-AzADServicePrincipal -ApplicationId $ClientID
 Write-Output 'Waiting for ClientID registration'
 Start-Sleep -Seconds 30 | out-null
-New-AzureRmRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $ClientID
-Write-Output @{ "Client ID" = $ClientID; "Tenant ID" = $AzureSubscriptionName.TenantID; "Subscription Name" = $AzureSubscriptionName.Name; "AppID" = $AppReg.DisplayName; }
+New-AzRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $ClientID
+Write-Output @{ "Client ID" = $ClientID; "Tenant ID" = $AzureSubscriptionId.TenantID; "Subscription Name" = $AzureSubscriptionId.Name; "AppID" = $AppReg.DisplayName; }
 Write-Output 'Please save those parmateres '
 
 Read-Host "Press Q to close the window"
-
 
